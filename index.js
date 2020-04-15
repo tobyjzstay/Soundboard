@@ -7,7 +7,7 @@
 const Discord = require("discord.js");
 const { prefix, token, role } = require("./config.json");
 const ytdl = require("ytdl-core");
-const fs = require("fs");
+var fs = require("fs");
 var sounds;
 
 const client = new Discord.Client();
@@ -18,6 +18,7 @@ client.sounds = new Discord.Collection();
 
 client.once("ready", () => {
   console.log("Ready!");
+  client.user.setActivity(`${prefix}soundboard`, { type: 'LISTENING' });
 });
 
 client.once("reconnecting", () => {
@@ -34,19 +35,21 @@ client.on("message", async message => {
 
   const serverQueue = queue.get(message.guild.id);
 
-  if (!message.content.startsWith(`${prefix}`)) {
-    return;
-  }
   const args = message.content.slice(prefix.length).split(/ +/);
 
-  if (args[0] == "kick") {
-    stop(message, serverQueue);
-    return;
-  } else if (client.sounds.get(args[0]) != null) {
-    load(message, client.sounds.get(args[0]), serverQueue);
-  } else if (args[0] == "soundboard") {
+  if (args[0] == "soundboard") {
     help(message);
     return;
+  } else if (args[0] == "kick") {
+    stop(message, serverQueue);
+    return;
+  }
+  // else if (args[0] == "add") {
+  //   add(message);
+  //   return;
+  // }
+  else if (client.sounds.get(args[0]) != null) {
+    load(message, client.sounds.get(args[0]), serverQueue);
   }
 });
 
@@ -142,8 +145,7 @@ async function load(message, sound, serverQueue) {
 function stop(message, serverQueue) {
   if (!message.member.hasPermission("ADMINISTRATOR") && message.member.roles.cache.get(role) == null) {
     return message.channel.send(`You have to have the \`${role}\` role to use this command!`);
-  } else
-  if (!message.member.voice.channel) {
+  } else if (!message.member.voice.channel) {
     return message.channel.send("You have to be in a voice channel to kick the bot!");
   }
   serverQueue.songs = [];
@@ -169,19 +171,22 @@ function play(guild, song) {
 }
 
 function help(message) {
-  const embed = new Discord.MessageEmbed()
-  .setAuthor("Soundboard", client.user.displayAvatarURL())
-  .setDescription("To kick the bot, type `!kick`");
+
   var output = "";
   const { sounds } = message.client;
   sounds.array().forEach(function(sound) {
-    embed.addField(`${prefix}${sound.name}`, `${sound.description}`);
+    output += `**${prefix}${sound.name}** - ${sound.description}\n`;
   });
+  output += `\nAdmin/${role} role commands:\n`;
+  output += "`!kick`" // | `!add <name> <url> <description>`"
+  const embed = new Discord.MessageEmbed()
+  .setAuthor("Soundboard", client.user.displayAvatarURL())
+  .setDescription(output);
   message.channel.send(embed);
 }
 
-function load() {
-  sounds = fs.readdirSync("./sounds").filter(file => file.endsWith(".js"));
+function initialise() {
+  sounds = fs.readdirSync("./sounds").filter(file => file.endsWith(".json"));
   client.sounds.clear();
   for (const file of sounds) {
     const sound = require(`./sounds/${file}`);
@@ -189,5 +194,21 @@ function load() {
   }
 }
 
-load();
+function add(message) {
+  if (!message.member.hasPermission("ADMINISTRATOR") && message.member.roles.cache.get(role) == null) {
+    return message.channel.send(`You have to have the \`${role}\` role to use this command!`);
+  }
+  const args = message.content.slice(prefix.length).split(/ +/);
+  if (args.length < 4) {
+    message.channel.send(`Insufficient arguments. \`${prefix}add <name> <url> <description>\``);
+    return;
+  }
+  var file = { name: args[1], url: args[2], description: args[3] };
+  fs.writeFile(`./sounds/${args[1]}.json`, JSON.stringify(file, null, 2) + "\n", function (error) {
+    if (error) return console.log(error);
+  });
+  initialise();
+}
+
+initialise();
 client.login(token);
