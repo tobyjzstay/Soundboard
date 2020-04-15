@@ -8,17 +8,13 @@ const Discord = require("discord.js");
 const { prefix, token, role } = require("./config.json");
 const ytdl = require("ytdl-core");
 const fs = require("fs");
-const sounds = fs.readdirSync("./sounds").filter(file => file.endsWith(".js"));
+var sounds;
 
 const client = new Discord.Client();
 
 const queue = new Map();
 
 client.sounds = new Discord.Collection();
-for (const file of sounds) {
-  const sound = require(`./sounds/${file}`);
-  client.sounds.set(sound.name, sound);
-}
 
 client.once("ready", () => {
   console.log("Ready!");
@@ -184,4 +180,14 @@ function help(message) {
   message.channel.send(embed);
 }
 
+function load() {
+  sounds = fs.readdirSync("./sounds").filter(file => file.endsWith(".js"));
+  client.sounds.clear();
+  for (const file of sounds) {
+    const sound = require(`./sounds/${file}`);
+    client.sounds.set(sound.name, sound);
+  }
+}
+
+load();
 client.login(token);
